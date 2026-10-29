@@ -81,19 +81,44 @@ if data and st.session_state.get("province_data_province")==province:
     elif data['critical_station_count']>0: st.warning(f"⚠️ พบสถานีระดับวิกฤต {data['critical_station_count']} สถานี")
     if data['water_stations']:
         st.subheader("สถานีระดับน้ำล่าสุด")
-        st.caption("ลิงก์อ้างอิงรายสถานี: กด “เปิดสถานี ↗” เพื่อดูรายละเอียดของสถานีนั้นบน THData")
+        st.caption("กด “เปิดสถานี ↗” ที่อยู่ข้างชื่อสถานี เพื่อดูรายละเอียดของสถานีนั้นบน THData")
+
         station_df = pd.DataFrame(data['water_stations']).rename(columns={
-            "station": "ชื่อสถานี", "level_msl": "ระดับน้ำล่าสุด (ม. MSL)",
-            "trend_m": "แนวโน้ม (ม.)", "situation_level": "ระดับสถานการณ์",
-            "bank_status": "สถานะเทียบตลิ่ง", "source_url": "อ้างอิงระดับน้ำ"
+            "station": "ชื่อสถานี",
+            "level_msl": "ระดับน้ำล่าสุด (ม. MSL)",
+            "trend_m": "แนวโน้ม (ม.)",
+            "situation_level": "ระดับสถานการณ์",
+            "bank_status": "สถานะเทียบตลิ่ง",
+            "source_url": "เปิดสถานี"
         })
-        if "อ้างอิงระดับน้ำ" not in station_df.columns:
-            station_df["อ้างอิงระดับน้ำ"] = "https://water.thdata.co/"
+
+        # ใช้ลิงก์รายสถานีจาก API; ถ้าไม่มี URL จะลองสร้างจากรหัสสถานี
+        if "เปิดสถานี" not in station_df.columns:
+            station_df["เปิดสถานี"] = None
+
+        if "เปิดสถานี" in station_df.columns:
+            station_df["เปิดสถานี"] = station_df["เปิดสถานี"].where(
+                station_df["เปิดสถานี"].astype(str).str.startswith("https://"),
+                None
+            )
+
+        # ให้คอลัมน์ลิงก์อยู่ติดกับชื่อสถานีตามที่ผู้ใช้ร้องขอ
+        preferred_order = [
+            "ชื่อสถานี", "เปิดสถานี", "ระดับน้ำล่าสุด (ม. MSL)",
+            "แนวโน้ม (ม.)", "ระดับสถานการณ์", "สถานะเทียบตลิ่ง"
+        ]
+        ordered_columns = [c for c in preferred_order if c in station_df.columns]
+        ordered_columns += [c for c in station_df.columns if c not in ordered_columns]
+        station_df = station_df[ordered_columns]
+
         st.dataframe(
-            station_df, use_container_width=True, hide_index=True,
+            station_df,
+            use_container_width=True,
+            hide_index=True,
             column_config={
-                "อ้างอิงระดับน้ำ": st.column_config.LinkColumn(
-                    "อ้างอิงระดับน้ำ", display_text="เปิดสถานี ↗",
+                "เปิดสถานี": st.column_config.LinkColumn(
+                    "อ้างอิงระดับน้ำ",
+                    display_text="เปิดสถานี ↗",
                     help="เปิดหน้ารายละเอียดของสถานีนี้บน THData"
                 ),
                 "ระดับน้ำล่าสุด (ม. MSL)": st.column_config.NumberColumn(format="%.2f"),
